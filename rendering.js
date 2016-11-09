@@ -9,6 +9,9 @@ var RenderingManager = (function () {
     var grid_spacing = 20;
 
     return {
+        get_graphics: function () {
+            return my_graphics;
+        },
         mouse_position: function () {
             return renderer.plugins.interaction.mouse.global;
         },
@@ -23,11 +26,10 @@ var RenderingManager = (function () {
             }
         },
 
-
 //cursor drawer
         calculate_cursor: function () {
             var cursor_location = RenderingManager.get_snapped_mouse();
-            var circle = RenderingManager.create_circle(cursor_location.x, cursor_location.y, 20, 0x7d8e4d);
+            var circle = Entities.create_circle(cursor_location.x, cursor_location.y, 20, 0x7d8e4d);
             RenderingManager.objects.add_temporary(circle);
         },
 
@@ -40,53 +42,14 @@ var RenderingManager = (function () {
             var i, obj, offset;
             for (i = 0; i < no_squares_horizontal; ++i) {
                 offset = i * grid_spacing;
-                obj = this.create_line(offset, 0, offset, height, 0xd18659);
+                obj = Entities.create_line(offset, 0, offset, height, 0xd18659);
                 this.objects.add_permanent(obj);
             }
             for (i = 0; i < no_squares_vertical; ++i) {
                 offset = i * grid_spacing;
-                obj = this.create_line(0, offset, width, offset, 0xd18659);
+                obj = Entities.create_line(0, offset, width, offset, 0xd18659);
                 this.objects.add_permanent(obj);
             }
-        },
-
-        create_basic_object: function (origin_x, origin_y, end_x, end_y, colour) {
-            var draw = function () {
-                //default to draw rect
-                my_graphics.beginFill(this.colour);
-                my_graphics.drawRect(origin_x, origin_y, end_x - origin_x, end_y - origin_y);
-                my_graphics.endFill();
-            };
-            return {
-                origin_x: origin_x,
-                origin_y: origin_y,
-                end_x: end_x,
-                end_y: end_y,
-                colour: colour,
-                draw: draw
-            };
-        },
-
-        create_circle: function (origin_x, origin_y, radius, colour) {
-            var circle = this.create_basic_object(origin_x, origin_y, 0, 0, colour);
-            circle.radius = radius;
-            circle.draw = function () {
-                my_graphics.beginFill(this.colour);
-                my_graphics.drawCircle(this.origin_x, this.origin_y, this.radius);
-                my_graphics.endFill();
-            };
-            return circle
-        },
-
-        create_line: function (origin_x, origin_y, end_x, end_y, colour) {
-            var line = this.create_basic_object(origin_x, origin_y, end_x, end_y, colour);
-            line.draw = function () {
-                my_graphics.lineStyle(1, this.colour);
-                my_graphics.moveTo(this.origin_x, this.origin_y);
-                my_graphics.lineTo(this.end_x, this.end_y);
-                my_graphics.endFill();
-            };
-            return line;
         },
 
         start: function () {
@@ -96,33 +59,64 @@ var RenderingManager = (function () {
             document.body.appendChild(renderer.view);
             stage = new PIXI.Container();
             stage.interactive = true;
+            stage.on("mousedown", this.draw_square.start_draw);
+            stage.on("mouseup", this.draw_square.end_draw);
             my_graphics = new PIXI.Graphics();
             stage.addChild(my_graphics);
 
-            // this.stage.on("mousedown", Draw.startRect);
-            // this.stage.on("mouseup", Draw.endRect);
+            Entities.load();
 
             this.calculate_grid();
             update_methods.push(this.calculate_cursor);
+            update_methods.push(this.draw_square.update_draw);
             setInterval(function () {
                 RenderingManager.update()
             }, 16);
         },
 
+        draw_square: (function () {
+            var drawing = false;
+            var origin_x, origin_y, end_x, end_y;
+            var rect;
+
+            return {
+                update_draw: function () {
+                    if (drawing) {
+                        var mouse = RenderingManager.get_snapped_mouse();
+                        end_x = mouse.x;
+                        end_y = mouse.y;
+                        rect = Entities.create_rectangle(origin_x, origin_y, end_x, end_y, 0xd18659);
+                        RenderingManager.objects.add_temporary(rect);
+                    }
+                },
+                end_draw: function () {
+                    drawing = false;
+                    rect = Entities.create_rectangle(origin_x, origin_y, end_x, end_y, 0xd18659);
+                    RenderingManager.objects.add_permanent(rect);
+                },
+                start_draw: function () {
+                    drawing = true;
+                    var mouse = RenderingManager.get_snapped_mouse();
+                    origin_x = mouse.x;
+                    origin_y = mouse.y;
+                }
+            };
+        }()),
+
         update: function () {
             my_graphics.clear();
             var i;
-            for (i = 0; i < permanent_objects.length; ++i) {
-                permanent_objects[i].draw();
-            }
             for (i = 0; i < update_methods.length; ++i) {
                 update_methods[i]();
+            }
+            for (i = 0; i < permanent_objects.length; ++i) {
+                permanent_objects[i].draw();
             }
             for (i = 0; i < temporary_objects.length; ++i) {
                 temporary_objects[i].draw();
             }
-            temporary_objects = [];
             renderer.render(stage);
+            temporary_objects = [];
         },
 
         objects: (function () {
