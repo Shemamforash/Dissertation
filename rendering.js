@@ -55,6 +55,7 @@ var RenderingManager = (function () {
                 //default to draw rect
                 my_graphics.beginFill(this.colour);
                 my_graphics.drawRect(origin_x, origin_y, end_x - origin_x, end_y - origin_y);
+                my_graphics.endFill();
             };
             return {
                 origin_x: origin_x,
@@ -72,6 +73,7 @@ var RenderingManager = (function () {
             circle.draw = function () {
                 my_graphics.beginFill(this.colour);
                 my_graphics.drawCircle(this.origin_x, this.origin_y, this.radius);
+                my_graphics.endFill();
             };
             return circle
         },
@@ -79,26 +81,27 @@ var RenderingManager = (function () {
         create_line: function (origin_x, origin_y, end_x, end_y, colour) {
             var line = this.create_basic_object(origin_x, origin_y, end_x, end_y, colour);
             line.draw = function () {
-                my_graphics.lineStyle(this.colour);
+                my_graphics.lineStyle(1, this.colour);
                 my_graphics.moveTo(this.origin_x, this.origin_y);
                 my_graphics.lineTo(this.end_x, this.end_y);
-                stage.addChild(my_graphics);
+                my_graphics.endFill();
             };
             return line;
         },
 
         start: function () {
             renderer = PIXI.autoDetectRenderer($(document).width(), $(document).height(), {antialias: true, transparent: false, resolution: 1});
-            document.body.appendChild(renderer.view);
-
-            stage = new PIXI.Container();
-            my_graphics = new PIXI.Graphics();
-
-            stage.interactive = true;
-            // this.stage.on("mousedown", Draw.startRect);
-            // this.stage.on("mouseup", Draw.endRect);
             renderer.autoResize = true;
             renderer.backgroundColor = 0xedd7bd;
+            document.body.appendChild(renderer.view);
+            stage = new PIXI.Container();
+            stage.interactive = true;
+            my_graphics = new PIXI.Graphics();
+            stage.addChild(my_graphics);
+
+            // this.stage.on("mousedown", Draw.startRect);
+            // this.stage.on("mouseup", Draw.endRect);
+
             this.calculate_grid();
             update_methods.push(this.calculate_cursor);
             setInterval(function () {
@@ -107,20 +110,18 @@ var RenderingManager = (function () {
         },
 
         update: function () {
-            stage.removeChild(my_graphics);
             my_graphics.clear();
             var i;
-            for (i = 0; i < update_methods.length; ++i) {
-                update_methods[i]();
-            }
             for (i = 0; i < permanent_objects.length; ++i) {
                 permanent_objects[i].draw();
+            }
+            for (i = 0; i < update_methods.length; ++i) {
+                update_methods[i]();
             }
             for (i = 0; i < temporary_objects.length; ++i) {
                 temporary_objects[i].draw();
             }
             temporary_objects = [];
-            stage.addChild(my_graphics);
             renderer.render(stage);
         },
 
